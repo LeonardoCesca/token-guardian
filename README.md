@@ -68,7 +68,7 @@ In interactive terminals, Token Guardian opens a guided menu with:
 
 - provider selection
 - model selection
-- prompt entry
+- prompt entry with Enter to send
 - sync selection by provider
 - quick access to models and metrics
 

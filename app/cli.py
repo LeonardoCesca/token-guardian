@@ -306,35 +306,29 @@ def _interactive_analyze() -> int:
     _render_provider_focus(provider)
     model = _select_model_for_provider(provider)
     _render_model_spotlight(provider, model)
-    prompt = _prompt_text("Cole o prompt", multiline=True)
-    estimated_output_tokens = _prompt_optional_int(
-        "Tokens de saida estimados", default=None
-    )
+    prompt = _prompt_text("Cole o prompt")
     return _analyze_command(
         argparse.Namespace(
             provider=provider,
             model=model,
             prompt=prompt,
-            estimated_output_tokens=estimated_output_tokens,
+            estimated_output_tokens=None,
         )
     )
 
 
 def _interactive_compare() -> int:
-    prompt = _prompt_text("Prompt para comparar", multiline=True)
-    estimated_output_tokens = _prompt_optional_int(
-        "Tokens de saida estimados", default=None
-    )
+    prompt = _prompt_text("Prompt para comparar")
     return _compare_command(
         argparse.Namespace(
             prompt=prompt,
-            estimated_output_tokens=estimated_output_tokens,
+            estimated_output_tokens=None,
         )
     )
 
 
 def _interactive_optimize() -> int:
-    prompt = _prompt_text("Prompt para otimizar", multiline=True)
+    prompt = _prompt_text("Prompt para otimizar")
     return _optimize_command(argparse.Namespace(prompt=prompt))
 
 
@@ -405,36 +399,18 @@ def _select_model_for_provider(provider: str) -> str:
     ).execute()
 
 
-def _prompt_text(message: str, *, multiline: bool) -> str:
-    instruction = (
-        "Pressione Alt+Enter para quebrar linha e Enter para concluir."
-        if multiline
-        else "Pressione Enter para confirmar."
-    )
+def _prompt_text(message: str) -> str:
     return str(
         inquirer.text(
             message=message,
-            multiline=multiline,
-            instruction=instruction,
+            multiline=False,
+            instruction="Pressione Enter para enviar.",
             qmark="",
             validate=lambda value: len(str(value).strip()) > 0,
             invalid_message="Informe um valor antes de continuar.",
             long_instruction="O texto sera usado diretamente no fluxo selecionado.",
         ).execute()
     ).strip()
-
-
-def _prompt_optional_int(message: str, *, default: int | None) -> int | None:
-    value = inquirer.text(
-        message=message,
-        default="" if default is None else str(default),
-        instruction="Deixe vazio para estimativa automatica.",
-        qmark="",
-        validate=lambda raw: str(raw).strip() == "" or str(raw).strip().isdigit(),
-        invalid_message="Digite um numero inteiro positivo ou deixe vazio.",
-    ).execute()
-    stripped = str(value).strip()
-    return int(stripped) if stripped else None
 
 
 def _supports_interactive_ui() -> bool:
@@ -496,7 +472,6 @@ def _render_shortcuts_panel() -> None:
     shortcuts.add_row("ENTER", "confirmar selecao ou executar")
     shortcuts.add_row("SPACE", "marcar providers no sync")
     shortcuts.add_row("CTRL+C", "sair a qualquer momento")
-    shortcuts.add_row("ALT+ENTER", "quebrar linha em prompts multiline")
     CONSOLE.print(
         Panel(
             shortcuts,

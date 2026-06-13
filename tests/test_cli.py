@@ -117,8 +117,7 @@ def test_metrics_command_prints_summary(capsys: pytest.CaptureFixture[str]) -> N
 def test_interactive_analyze_builds_flow(monkeypatch) -> None:
     monkeypatch.setattr(cli, "_select_provider", lambda: "anthropic")
     monkeypatch.setattr(cli, "_select_model_for_provider", lambda provider: "claude-sonnet-4")
-    monkeypatch.setattr(cli, "_prompt_text", lambda message, multiline: "Prompt interativo")
-    monkeypatch.setattr(cli, "_prompt_optional_int", lambda message, default: 256)
+    monkeypatch.setattr(cli, "_prompt_text", lambda message: "Prompt interativo")
 
     captured: dict[str, object] = {}
 
@@ -134,12 +133,11 @@ def test_interactive_analyze_builds_flow(monkeypatch) -> None:
     assert cli._interactive_analyze() == 3
     assert captured["provider"] == "anthropic"
     assert captured["model"] == "claude-sonnet-4"
-    assert captured["estimated_output_tokens"] == 256
+    assert captured["estimated_output_tokens"] is None
 
 
 def test_interactive_compare_and_optimize(monkeypatch) -> None:
-    monkeypatch.setattr(cli, "_prompt_text", lambda message, multiline: "Prompt interativo")
-    monkeypatch.setattr(cli, "_prompt_optional_int", lambda message, default: None)
+    monkeypatch.setattr(cli, "_prompt_text", lambda message: "Prompt interativo")
     monkeypatch.setattr(cli, "_compare_command", lambda args: 5)
     monkeypatch.setattr(cli, "_optimize_command", lambda args: 6)
 
@@ -206,13 +204,7 @@ def test_selectors_and_text_prompts(monkeypatch) -> None:
     assert cli._select_model_for_provider("anthropic") == "claude-sonnet-4"
 
     monkeypatch.setattr(cli.inquirer, "text", lambda **kwargs: FakePrompt("texto"))
-    assert cli._prompt_text("x", multiline=False) == "texto"
-
-    monkeypatch.setattr(cli.inquirer, "text", lambda **kwargs: FakePrompt(""))
-    assert cli._prompt_optional_int("x", default=None) is None
-
-    monkeypatch.setattr(cli.inquirer, "text", lambda **kwargs: FakePrompt("123"))
-    assert cli._prompt_optional_int("x", default=None) == 123
+    assert cli._prompt_text("x") == "texto"
 
 
 def test_interactive_menu_routes_choices(monkeypatch) -> None:
