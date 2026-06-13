@@ -28,6 +28,23 @@ dev = [
 [project.scripts]
 token-guardian = "app.cli:main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+include = [
+  "app/providers/data/*.json",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/app",
+  "/tests",
+  "/docs",
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/app/providers/data/model_catalog.json",
+]
+
 [tool.black]
 line-length = 88
 target-version = ["py312"]

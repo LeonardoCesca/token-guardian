@@ -29,7 +29,7 @@ It helps developers answer three questions quickly:
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .[dev]
-token-guardian --help
+token-guardian
 ```
 
 ### macOS / Linux
@@ -38,7 +38,7 @@ token-guardian --help
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
-token-guardian --help
+token-guardian
 ```
 
 ## What the CLI Can Do
@@ -47,9 +47,18 @@ token-guardian --help
 - compare one prompt across the default supported models
 - optimize prompt text by removing duplicates and excess whitespace
 - list supported models
+- sync the local model catalog snapshot
 - inspect local usage metrics
 
 ## Usage
+
+### Start here
+
+```bash
+token-guardian
+```
+
+Running without arguments shows the available flow and the most useful commands to start with.
 
 ### Analyze a prompt
 
@@ -82,6 +91,13 @@ Return bullets only."
 
 ```bash
 token-guardian models
+```
+
+### Sync model catalog
+
+```bash
+token-guardian sync-models
+token-guardian sync-models --provider openai
 ```
 
 ### View local metrics
@@ -129,6 +145,12 @@ Each model stores:
 - input price per 1K tokens
 - output price per 1K tokens
 - speed estimate
+- source URL
+
+The CLI also shows catalog metadata such as:
+
+- `Catalogo atualizado em 2026-06-13`
+- the current JSON snapshot path
 
 ## Scoring
 

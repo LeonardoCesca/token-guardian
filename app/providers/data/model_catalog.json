@@ -1,0 +1,65 @@
+{
+  "last_updated_at": "2026-06-13",
+  "models": [
+    {
+      "provider": "anthropic",
+      "model": "claude-opus-4",
+      "display_name": "Claude Opus 4",
+      "context_limit": 200000,
+      "input_cost_per_1k": 0.015,
+      "output_cost_per_1k": 0.075,
+      "speed_estimate": "slow",
+      "source_url": "https://docs.anthropic.com/en/docs/about-claude/models/overview"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4",
+      "display_name": "Claude Sonnet 4",
+      "context_limit": 200000,
+      "input_cost_per_1k": 0.003,
+      "output_cost_per_1k": 0.015,
+      "speed_estimate": "fast",
+      "source_url": "https://docs.anthropic.com/en/docs/about-claude/models/overview"
+    },
+    {
+      "provider": "google",
+      "model": "gemini-2.5-flash",
+      "display_name": "Gemini 2.5 Flash",
+      "context_limit": 1000000,
+      "input_cost_per_1k": 0.0003,
+      "output_cost_per_1k": 0.0025,
+      "speed_estimate": "very fast",
+      "source_url": "https://ai.google.dev/gemini-api/docs/models"
+    },
+    {
+      "provider": "google",
+      "model": "gemini-2.5-pro",
+      "display_name": "Gemini 2.5 Pro",
+      "context_limit": 1000000,
+      "input_cost_per_1k": 0.00125,
+      "output_cost_per_1k": 0.01,
+      "speed_estimate": "medium",
+      "source_url": "https://ai.google.dev/gemini-api/docs/models"
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-4.1",
+      "display_name": "GPT-4.1",
+      "context_limit": 1000000,
+      "input_cost_per_1k": 0.002,
+      "output_cost_per_1k": 0.008,
+      "speed_estimate": "medium",
+      "source_url": "https://platform.openai.com/docs/models"
+    },
+    {
+      "provider": "openrouter",
+      "model": "openai/gpt-4.1",
+      "display_name": "OpenRouter GPT-4.1",
+      "context_limit": 1000000,
+      "input_cost_per_1k": 0.0022,
+      "output_cost_per_1k": 0.0088,
+      "speed_estimate": "medium",
+      "source_url": "https://openrouter.ai/models"
+    }
+  ]
+}

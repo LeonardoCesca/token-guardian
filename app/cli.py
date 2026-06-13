@@ -2,18 +2,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 
 from app.models.schemas import AnalyzePromptRequest, CompareModelsRequest
-from app.providers.registry import list_models
+from app.providers.registry import get_catalog_snapshot, list_models
+from app.providers.sync_service import UnsupportedProviderError, sync_model_catalog
 from app.services.analyzer_service import analyze_prompt, compare_models
 from app.services.metrics_service import get_metrics
 from app.services.optimizer_service import optimize_prompt
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    raw_args = list(argv) if argv is not None else sys.argv[1:]
     parser = _build_parser()
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    if len(raw_args) == 0:
+        return _default_command()
+    args = parser.parse_args(raw_args)
     return args.func(args)
 
 
@@ -54,6 +59,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Lista os modelos suportados.",
     )
     models_parser.set_defaults(func=_models_command)
+
+    sync_models_parser = subparsers.add_parser(
+        "sync-models",
+        help="Atualiza o catalogo JSON local a partir dos adapters por provider.",
+    )
+    sync_models_parser.add_argument(
+        "--provider",
+        action="append",
+        default=[],
+        help="Sincroniza apenas o provider informado. Repita a flag para incluir mais de um.",
+    )
+    sync_models_parser.set_defaults(func=_sync_models_command)
 
     metrics_parser = subparsers.add_parser(
         "metrics",
@@ -110,6 +127,9 @@ def _optimize_command(args: argparse.Namespace) -> int:
 
 
 def _models_command(_args: argparse.Namespace) -> int:
+    snapshot = get_catalog_snapshot()
+    print(f"Catalogo atualizado em {snapshot.last_updated_at}")
+    print(f"Origem atual: {snapshot.catalog_path}\n")
     print("## Modelos Suportados\n")
     for item in sorted(list_models(), key=lambda model: (model.provider, model.model)):
         print(
@@ -117,8 +137,23 @@ def _models_command(_args: argparse.Namespace) -> int:
             f"contexto {item.context_limit} | "
             f"in ${item.input_cost_per_1k}/1k | "
             f"out ${item.output_cost_per_1k}/1k | "
-            f"velocidade {item.speed_estimate}"
+            f"velocidade {item.speed_estimate} | "
+            f"fonte {item.source_url}"
         )
+    return 0
+
+
+def _sync_models_command(args: argparse.Namespace) -> int:
+    try:
+        snapshot = sync_model_catalog(args.provider)
+    except UnsupportedProviderError as exc:
+        print(str(exc))
+        return 1
+
+    print("## Catalogo Sincronizado\n")
+    print(f"Catalogo atualizado em {snapshot.last_updated_at}")
+    print(f"Arquivo: {snapshot.catalog_path}")
+    print(f"Modelos sincronizados: {len(snapshot.models)}")
     return 0
 
 
@@ -130,6 +165,19 @@ def _metrics_command(_args: argparse.Namespace) -> int:
     print(f"Custo estimado acumulado: ${metrics.total_cost_estimated:.6f}")
     print(f"Top modelos: {_format_ranked(metrics.top_models)}")
     print(f"Top providers: {_format_ranked(metrics.top_providers)}")
+    return 0
+
+
+def _default_command() -> int:
+    print("Token Guardian CLI\n")
+    print("Use um dos comandos abaixo:\n")
+    print("- token-guardian analyze --provider anthropic --model claude-sonnet-4 --prompt \"Seu prompt\"")
+    print("- token-guardian compare --prompt \"Seu prompt\"")
+    print("- token-guardian optimize --prompt \"Seu prompt\"")
+    print("- token-guardian models")
+    print("- token-guardian sync-models")
+    print("- token-guardian metrics")
+    print("\nDica: rode `token-guardian --help` para ver todas as opcoes.")
     return 0
 
 
