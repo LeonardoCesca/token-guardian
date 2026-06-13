@@ -22,7 +22,7 @@ def test_analyze_command_prints_report(capsys: pytest.CaptureFixture[str]) -> No
     output = capsys.readouterr().out
     assert exit_code == 0
     assert "Analise do Prompt" in output
-    assert '"provider": "anthropic"' in output
+    assert "anthropic/claude-sonnet-4" in output
 
 
 def test_main_without_args_prints_default_entrypoint_message(
@@ -110,7 +110,8 @@ def test_metrics_command_prints_summary(capsys: pytest.CaptureFixture[str]) -> N
     output = capsys.readouterr().out
     assert exit_code == 0
     assert "Metricas Locais" in output
-    assert "Total de requisicoes: 1" in output
+    assert "Total de requisicoes" in output
+    assert "1" in output
 
 
 def test_interactive_analyze_builds_flow(monkeypatch) -> None:
@@ -192,6 +193,8 @@ def test_selectors_and_text_prompts(monkeypatch) -> None:
                     "context_limit": 200000,
                     "input_cost_per_1k": 0.003,
                     "output_cost_per_1k": 0.015,
+                    "speed_estimate": "fast",
+                    "source_url": "https://example.com/model",
                 },
             )(),
         ],
@@ -221,6 +224,8 @@ def test_interactive_menu_routes_choices(monkeypatch) -> None:
             return self.result
 
     monkeypatch.setattr(cli, "_render_cover", lambda: None)
+    monkeypatch.setattr(cli, "_render_quick_actions", lambda: None)
+    monkeypatch.setattr(cli, "_render_shortcuts_panel", lambda: None)
     monkeypatch.setattr(cli.inquirer, "select", lambda **kwargs: FakePrompt("models"))
     monkeypatch.setattr(cli, "_models_command", lambda args: 21)
     assert cli._interactive_menu() == 21
@@ -245,3 +250,106 @@ def test_supports_interactive_ui_and_render_cover(monkeypatch) -> None:
 
     monkeypatch.setattr(cli.CONSOLE, "print", lambda *args, **kwargs: None)
     cli._render_cover()
+    cli._render_quick_actions()
+    cli._render_shortcuts_panel()
+
+
+def test_render_helpers_and_views(monkeypatch) -> None:
+    monkeypatch.setattr(cli.CONSOLE, "print", lambda *args, **kwargs: None)
+    cli._render_result_header("Titulo", "Subtitulo", "cyan")
+    cli._render_info_strip([("A", "1"), ("B", "2")])
+    table = cli._build_table("Tabela", ["A", "B"])
+    table.add_row("1", "2")
+
+    response = type(
+        "AnalyzeResponse",
+        (),
+        {
+            "provider": "anthropic",
+            "model": "claude-sonnet-4",
+            "input_tokens": 10,
+            "estimated_output_tokens": 20,
+            "estimated_total_tokens": 30,
+            "context_limit": 200000,
+            "context_usage_percent": 0.1,
+            "estimated_cost_usd": 0.01,
+            "risk_level": "low",
+            "context_health_score": 99,
+            "cost_score": "$",
+            "complexity_score": "Simple",
+            "suggestions": ["ok"],
+        },
+    )()
+    cli._render_analysis_view(response)
+
+    compare_response = type(
+        "CompareResponse",
+        (),
+        {
+            "prompt_length": 12,
+            "comparisons": [
+                type(
+                    "Item",
+                    (),
+                    {
+                        "provider": "openai",
+                        "model": "gpt-4.1",
+                        "estimated_total_tokens": 40,
+                        "estimated_cost_usd": 0.02,
+                        "risk_level": "low",
+                        "speed_estimate": "medium",
+                    },
+                )()
+            ],
+        },
+    )()
+    cli._render_compare_view(compare_response)
+
+    optimize_response = type(
+        "OptimizeResponse",
+        (),
+        {
+            "estimated_reduction_percent": 30,
+            "removed_patterns": ["Linhas duplicadas"],
+            "optimized_prompt": "Prompt final",
+        },
+    )()
+    cli._render_optimize_view(optimize_response)
+
+
+def test_render_model_focus_and_browser(monkeypatch) -> None:
+    monkeypatch.setattr(cli.CONSOLE, "print", lambda *args, **kwargs: None)
+    models = [
+        type(
+            "Model",
+            (),
+            {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4",
+                "display_name": "Claude Sonnet 4",
+                "context_limit": 200000,
+                "input_cost_per_1k": 0.003,
+                "output_cost_per_1k": 0.015,
+                "speed_estimate": "fast",
+                "source_url": "https://example.com/sonnet",
+            },
+        )(),
+        type(
+            "Model",
+            (),
+            {
+                "provider": "anthropic",
+                "model": "claude-opus-4",
+                "display_name": "Claude Opus 4",
+                "context_limit": 200000,
+                "input_cost_per_1k": 0.015,
+                "output_cost_per_1k": 0.075,
+                "speed_estimate": "slow",
+                "source_url": "https://example.com/opus",
+            },
+        )(),
+    ]
+    monkeypatch.setattr(cli, "list_models", lambda: models)
+    cli._render_provider_focus("anthropic")
+    cli._render_model_browser("anthropic", models)
+    cli._render_model_spotlight("anthropic", "claude-sonnet-4")

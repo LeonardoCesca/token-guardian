@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from collections.abc import Sequence
 
 from InquirerPy import inquirer
 from rich import box
-from rich.console import Console
+from rich.columns import Columns
+from rich.console import Console, Group
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -28,6 +29,36 @@ ASCII_LOGO = r"""
    | | (_) |   <  __/ | | | | |__| | |_| | (_| | | | (_| | | (_| | | | |
    |_|\___/|_|\_\___|_| |_|  \_____|\__,_|\__,_|_|  \__,_|_|\__,_|_| |_|
 """
+ACTION_CARDS = (
+    {
+        "title": "Analyze",
+        "subtitle": "1 provider, 1 model, 1 prompt",
+        "body": "Estimate tokens, cost, context pressure, and prompt quality before the LLM call.",
+        "accent": "bright_cyan",
+        "value": "analyze",
+    },
+    {
+        "title": "Compare",
+        "subtitle": "Same prompt, multiple models",
+        "body": "Compare cost, total tokens, speed, and risk across the default model set.",
+        "accent": "green",
+        "value": "compare",
+    },
+    {
+        "title": "Optimize",
+        "subtitle": "Prompt cleanup",
+        "body": "Remove duplicate instructions and whitespace noise before execution.",
+        "accent": "magenta",
+        "value": "optimize",
+    },
+    {
+        "title": "Catalog",
+        "subtitle": "Models, sync, metrics",
+        "body": "Browse the JSON snapshot, refresh providers, and inspect local observability.",
+        "accent": "yellow",
+        "value": "catalog",
+    },
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -107,7 +138,7 @@ def _analyze_command(args: argparse.Namespace) -> int:
             estimated_output_tokens=args.estimated_output_tokens,
         )
     )
-    print(_render_analysis_markdown(response))
+    _render_analysis_view(response)
     return 0
 
 
@@ -118,45 +149,55 @@ def _compare_command(args: argparse.Namespace) -> int:
             estimated_output_tokens=args.estimated_output_tokens,
         )
     )
-    print("## Comparacao de Modelos\n")
-    print(f"Prompt length: {response.prompt_length}\n")
-    for item in response.comparisons:
-        print(
-            f"- {item.provider}/{item.model}: "
-            f"custo ${item.estimated_cost_usd:.6f}, "
-            f"tokens {item.estimated_total_tokens}, "
-            f"risco {item.risk_level}, "
-            f"velocidade {item.speed_estimate}"
-        )
+    _render_compare_view(response)
     return 0
 
 
 def _optimize_command(args: argparse.Namespace) -> int:
     response = optimize_prompt(args.prompt)
-    print("## Prompt Otimizado\n")
-    print(f"Reducao estimada: {response.estimated_reduction_percent}%\n")
-    print("Padroes removidos:")
-    for item in response.removed_patterns:
-        print(f"- {item}")
-    print("\nPrompt otimizado:\n")
-    print(response.optimized_prompt)
+    _render_optimize_view(response)
     return 0
 
 
 def _models_command(_args: argparse.Namespace) -> int:
     snapshot = get_catalog_snapshot()
-    print(f"Catalogo atualizado em {snapshot.last_updated_at}")
-    print(f"Origem atual: {snapshot.catalog_path}\n")
-    print("## Modelos Suportados\n")
-    for item in sorted(list_models(), key=lambda model: (model.provider, model.model)):
-        print(
-            f"- {item.display_name} ({item.provider}/{item.model}) | "
-            f"contexto {item.context_limit} | "
-            f"in ${item.input_cost_per_1k}/1k | "
-            f"out ${item.output_cost_per_1k}/1k | "
-            f"velocidade {item.speed_estimate} | "
-            f"fonte {item.source_url}"
+    _render_result_header(
+        "Modelos Suportados",
+        f"Catalogo atualizado em {snapshot.last_updated_at}",
+        "bright_cyan",
+    )
+    _render_info_strip(
+        [
+            ("Origem atual", str(snapshot.catalog_path)),
+            ("Modelos", str(len(snapshot.models))),
+            ("Snapshot", snapshot.last_updated_at),
+        ]
+    )
+    table = _build_table(
+        "Catalogo",
+        ["Modelo", "Provider", "Contexto", "Entrada", "Saida", "Velocidade"],
+    )
+    models = sorted(list_models(), key=lambda model: (model.provider, model.model))
+    for item in models:
+        table.add_row(
+            item.display_name,
+            f"{item.provider}/{item.model}",
+            str(item.context_limit),
+            f"${item.input_cost_per_1k}/1k",
+            f"${item.output_cost_per_1k}/1k",
+            item.speed_estimate,
         )
+    CONSOLE.print(table)
+    source_panels = [
+        Panel(
+            Text(item.source_url, overflow="fold"),
+            title=f"[bold]{item.display_name}[/bold]",
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+        for item in models
+    ]
+    CONSOLE.print(Columns(source_panels, equal=True, expand=True))
     return 0
 
 
@@ -167,21 +208,39 @@ def _sync_models_command(args: argparse.Namespace) -> int:
         print(str(exc))
         return 1
 
-    print("## Catalogo Sincronizado\n")
-    print(f"Catalogo atualizado em {snapshot.last_updated_at}")
-    print(f"Arquivo: {snapshot.catalog_path}")
-    print(f"Modelos sincronizados: {len(snapshot.models)}")
+    _render_result_header(
+        "Catalogo Sincronizado",
+        f"Snapshot atualizado em {snapshot.last_updated_at}",
+        "green",
+    )
+    _render_info_strip(
+        [
+            ("Arquivo", str(snapshot.catalog_path)),
+            ("Modelos sincronizados", str(len(snapshot.models))),
+            ("Providers", str(len({item.provider for item in snapshot.models}))),
+        ]
+    )
     return 0
 
 
 def _metrics_command(_args: argparse.Namespace) -> int:
     metrics = get_metrics()
-    print("## Metricas Locais\n")
-    print(f"Total de requisicoes: {metrics.total_requests}")
-    print(f"Total de tokens: {metrics.total_tokens}")
-    print(f"Custo estimado acumulado: ${metrics.total_cost_estimated:.6f}")
-    print(f"Top modelos: {_format_ranked(metrics.top_models)}")
-    print(f"Top providers: {_format_ranked(metrics.top_providers)}")
+    _render_result_header(
+        "Metricas Locais",
+        "Observabilidade local para o uso do Token Guardian",
+        "bright_cyan",
+    )
+    _render_info_strip(
+        [
+            ("Total de requisicoes", str(metrics.total_requests)),
+            ("Total de tokens", str(metrics.total_tokens)),
+            ("Custo acumulado", f"${metrics.total_cost_estimated:.6f}"),
+        ]
+    )
+    table = _build_table("Ranking", ["Categoria", "Resumo"])
+    table.add_row("Top modelos", _format_ranked(metrics.top_models))
+    table.add_row("Top providers", _format_ranked(metrics.top_providers))
+    CONSOLE.print(table)
     return 0
 
 
@@ -191,9 +250,9 @@ def _default_command() -> int:
 
     print("Token Guardian CLI\n")
     print("Use um dos comandos abaixo:\n")
-    print("- token-guardian analyze --provider anthropic --model claude-sonnet-4 --prompt \"Seu prompt\"")
-    print("- token-guardian compare --prompt \"Seu prompt\"")
-    print("- token-guardian optimize --prompt \"Seu prompt\"")
+    print('- token-guardian analyze --provider anthropic --model claude-sonnet-4 --prompt "Seu prompt"')
+    print('- token-guardian compare --prompt "Seu prompt"')
+    print('- token-guardian optimize --prompt "Seu prompt"')
     print("- token-guardian models")
     print("- token-guardian sync-models")
     print("- token-guardian metrics")
@@ -203,47 +262,28 @@ def _default_command() -> int:
 
 def _interactive_menu() -> int:
     _render_cover()
+    _render_quick_actions()
+    _render_shortcuts_panel()
 
     choice = inquirer.select(
         message="Escolha o fluxo",
         choices=[
-            {
-                "name": "Revisar prompt",
-                "value": "analyze",
-            },
-            {
-                "name": "Comparar modelos",
-                "value": "compare",
-            },
-            {
-                "name": "Otimizar prompt",
-                "value": "optimize",
-            },
-            {
-                "name": "Listar modelos",
-                "value": "models",
-            },
-            {
-                "name": "Sincronizar catalogo",
-                "value": "sync-models",
-            },
-            {
-                "name": "Ver metricas",
-                "value": "metrics",
-            },
-            {
-                "name": "Sair",
-                "value": "exit",
-            },
+            {"name": "Revisar prompt", "value": "analyze"},
+            {"name": "Comparar modelos", "value": "compare"},
+            {"name": "Otimizar prompt", "value": "optimize"},
+            {"name": "Listar modelos", "value": "models"},
+            {"name": "Sincronizar catalogo", "value": "sync-models"},
+            {"name": "Ver metricas", "value": "metrics"},
+            {"name": "Sair", "value": "exit"},
         ],
-        pointer="›",
+        pointer=">",
         border=True,
         qmark="",
         instruction="Use as setas para navegar e Enter para confirmar.",
         long_instruction=(
-            "Preflight elegante para tokens, custo e contexto antes da chamada da LLM."
+            "Cada fluxo abre uma experiencia guiada. Comece por Analyze para revisar um prompt com provider e modelo definidos."
         ),
-        amark="●",
+        amark="*",
     ).execute()
 
     if choice == "analyze":
@@ -263,7 +303,9 @@ def _interactive_menu() -> int:
 
 def _interactive_analyze() -> int:
     provider = _select_provider()
+    _render_provider_focus(provider)
     model = _select_model_for_provider(provider)
+    _render_model_spotlight(provider, model)
     prompt = _prompt_text("Cole o prompt", multiline=True)
     estimated_output_tokens = _prompt_optional_int(
         "Tokens de saida estimados", default=None
@@ -307,11 +349,11 @@ def _interactive_sync_models() -> int:
                 for provider in provider_choices
             ],
         ],
-        pointer="›",
+        pointer=">",
         border=True,
         qmark="",
         instruction="Use espaco para marcar e Enter para confirmar.",
-        amark="●",
+        amark="*",
     ).execute()
     providers = [] if "__all__" in selected or not selected else selected
     return _sync_models_command(argparse.Namespace(provider=providers))
@@ -319,19 +361,30 @@ def _interactive_sync_models() -> int:
 
 def _select_provider() -> str:
     providers = sorted({item.provider for item in list_models()})
+    preview = [
+        Panel(
+            f"[bold]{provider.title()}[/bold]\n{len([item for item in list_models() if item.provider == provider])} modelos",
+            title=f"[cyan]{provider}[/cyan]",
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+        for provider in providers
+    ]
+    CONSOLE.print(Columns(preview, equal=True, expand=True))
     return inquirer.select(
         message="Escolha o provider",
         choices=[{"name": provider.title(), "value": provider} for provider in providers],
-        pointer="›",
+        pointer=">",
         border=True,
         qmark="",
         instruction="Selecione o provedor do fluxo.",
-        amark="●",
+        amark="*",
     ).execute()
 
 
 def _select_model_for_provider(provider: str) -> str:
     models = [item for item in list_models() if item.provider == provider]
+    _render_model_browser(provider, models)
     return inquirer.select(
         message="Escolha o modelo",
         choices=[
@@ -344,11 +397,11 @@ def _select_model_for_provider(provider: str) -> str:
             }
             for item in models
         ],
-        pointer="›",
+        pointer=">",
         border=True,
         qmark="",
-        instruction="Selecione o modelo para analisar o prompt.",
-        amark="●",
+        instruction="Selecione o modelo. O painel acima destaca o perfil recomendado e o contexto disponivel.",
+        amark="*",
     ).execute()
 
 
@@ -417,29 +470,234 @@ def _render_cover() -> None:
     CONSOLE.print()
 
 
+def _render_quick_actions() -> None:
+    cards = [
+        Panel(
+            Group(
+                Text(card["title"], style=f"bold {card['accent']}"),
+                Text(card["subtitle"], style="white"),
+                Text(card["body"], style="bright_white"),
+            ),
+            border_style=card["accent"],
+            box=box.ROUNDED,
+            padding=(1, 1),
+        )
+        for card in ACTION_CARDS
+    ]
+    CONSOLE.print(Columns(cards, equal=True, expand=True))
+    CONSOLE.print()
+
+
+def _render_shortcuts_panel() -> None:
+    shortcuts = Table.grid(expand=True)
+    shortcuts.add_column(style="bold cyan")
+    shortcuts.add_column(style="white")
+    shortcuts.add_row("UP / DOWN", "navegar entre opcoes")
+    shortcuts.add_row("ENTER", "confirmar selecao ou executar")
+    shortcuts.add_row("SPACE", "marcar providers no sync")
+    shortcuts.add_row("CTRL+C", "sair a qualquer momento")
+    shortcuts.add_row("ALT+ENTER", "quebrar linha em prompts multiline")
+    CONSOLE.print(
+        Panel(
+            shortcuts,
+            title="[bold white]Quick Actions + Atalhos[/bold white]",
+            border_style="bright_cyan",
+            box=box.ROUNDED,
+        )
+    )
+    CONSOLE.print()
+
+
+def _render_provider_focus(provider: str) -> None:
+    models = [item for item in list_models() if item.provider == provider]
+    snapshot = get_catalog_snapshot()
+    body = Group(
+        Text(f"Provider selecionado: {provider}", style="bold cyan"),
+        Text(f"Modelos disponiveis: {len(models)}"),
+        Text(f"Catalogo atualizado em {snapshot.last_updated_at}"),
+    )
+    CONSOLE.print(
+        Panel(
+            body,
+            title="[bold white]Provider Focus[/bold white]",
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+    )
+
+
+def _render_model_browser(provider: str, models: list[object]) -> None:
+    list_table = _build_table("Modelos", ["#", "Nome", "Velocidade"])
+    for index, item in enumerate(models, start=1):
+        list_table.add_row(str(index), item.display_name, item.speed_estimate)
+    recommended = sorted(
+        models,
+        key=lambda item: (item.output_cost_per_1k, -item.context_limit),
+    )[0]
+    spotlight = Panel(
+        Group(
+            Text(recommended.display_name, style="bold green"),
+            Text(f"provider: {provider}"),
+            Text(f"contexto: {recommended.context_limit}"),
+            Text(f"entrada: ${recommended.input_cost_per_1k}/1k"),
+            Text(f"saida: ${recommended.output_cost_per_1k}/1k"),
+            Text(f"velocidade: {recommended.speed_estimate}"),
+            Text(recommended.source_url, style="cyan"),
+        ),
+        title="[bold white]Preview lateral do modelo[/bold white]",
+        border_style="green",
+        box=box.ROUNDED,
+    )
+    CONSOLE.print(Columns([list_table, spotlight], equal=True, expand=True))
+    CONSOLE.print()
+
+
+def _render_model_spotlight(provider: str, model: str) -> None:
+    selected = next(
+        item for item in list_models() if item.provider == provider and item.model == model
+    )
+    body = Group(
+        Text(selected.display_name, style="bold bright_cyan"),
+        Text(f"{selected.provider}/{selected.model}"),
+        Text(f"contexto: {selected.context_limit}"),
+        Text(f"entrada: ${selected.input_cost_per_1k}/1k"),
+        Text(f"saida: ${selected.output_cost_per_1k}/1k"),
+        Text(f"velocidade: {selected.speed_estimate}"),
+        Text(selected.source_url, style="cyan"),
+    )
+    CONSOLE.print(
+        Panel(
+            body,
+            title="[bold white]Modelo selecionado[/bold white]",
+            border_style="bright_cyan",
+            box=box.ROUNDED,
+        )
+    )
+
+
+def _render_result_header(title: str, subtitle: str, color: str) -> None:
+    CONSOLE.print(
+        Panel(
+            Text.from_markup(f"[bold]{subtitle}[/bold]"),
+            title=f"[bold {color}]{title}[/bold {color}]",
+            border_style=color,
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
+def _render_info_strip(items: list[tuple[str, str]]) -> None:
+    panels = [
+        Panel(
+            Group(Text(label, style="bold cyan"), Text(value, style="white")),
+            box=box.ROUNDED,
+            border_style="cyan",
+        )
+        for label, value in items
+    ]
+    CONSOLE.print(Columns(panels, equal=True, expand=True))
+
+
+def _build_table(title: str, columns: list[str]) -> Table:
+    table = Table(
+        title=title,
+        box=box.ROUNDED,
+        border_style="bright_cyan",
+        header_style="bold cyan",
+        expand=True,
+    )
+    for column in columns:
+        table.add_column(column)
+    return table
+
+
+def _render_analysis_view(response) -> None:
+    _render_result_header(
+        "Analise do Prompt",
+        f"{response.provider}/{response.model}",
+        "bright_cyan",
+    )
+    _render_info_strip(
+        [
+            ("Tokens", str(response.estimated_total_tokens)),
+            ("Custo estimado", f"${response.estimated_cost_usd:.6f}"),
+            ("Uso de contexto", f"{response.context_usage_percent:.2f}%"),
+            ("Risco", response.risk_level),
+        ]
+    )
+    table = _build_table("Resumo", ["Campo", "Valor"])
+    table.add_row("Input tokens", str(response.input_tokens))
+    table.add_row("Output estimado", str(response.estimated_output_tokens))
+    table.add_row("Context limit", str(response.context_limit))
+    table.add_row("Context health", str(response.context_health_score))
+    table.add_row("Complexidade", response.complexity_score)
+    table.add_row("Faixa de custo", response.cost_score)
+    CONSOLE.print(table)
+    suggestions = "\n".join(f"- {item}" for item in response.suggestions)
+    CONSOLE.print(
+        Panel(
+            Markdown(f"### Recomendacoes\n{suggestions}"),
+            title="[bold white]Prompt Guidance[/bold white]",
+            border_style="green",
+            box=box.ROUNDED,
+        )
+    )
+
+
+def _render_compare_view(response) -> None:
+    _render_result_header(
+        "Comparacao de Modelos",
+        f"Prompt length: {response.prompt_length}",
+        "green",
+    )
+    table = _build_table(
+        "Comparativo",
+        ["Provider/Modelo", "Tokens", "Custo", "Risco", "Velocidade"],
+    )
+    for item in response.comparisons:
+        table.add_row(
+            f"{item.provider}/{item.model}",
+            str(item.estimated_total_tokens),
+            f"${item.estimated_cost_usd:.6f}",
+            item.risk_level,
+            item.speed_estimate,
+        )
+    CONSOLE.print(table)
+
+
+def _render_optimize_view(response) -> None:
+    _render_result_header(
+        "Prompt Otimizado",
+        f"Reducao estimada: {response.estimated_reduction_percent}%",
+        "magenta",
+    )
+    patterns = "\n".join(f"- {item}" for item in response.removed_patterns)
+    CONSOLE.print(
+        Columns(
+            [
+                Panel(
+                    Markdown(f"### Padroes removidos\n{patterns}"),
+                    border_style="magenta",
+                    box=box.ROUNDED,
+                ),
+                Panel(
+                    Text(response.optimized_prompt),
+                    title="[bold white]Prompt final[/bold white]",
+                    border_style="bright_cyan",
+                    box=box.ROUNDED,
+                ),
+            ],
+            equal=True,
+            expand=True,
+        )
+    )
+
+
 def _format_ranked(items: list[dict[str, int]]) -> str:
     if not items:
         return "nenhum dado ainda"
     return ", ".join(f"{name} ({count})" for item in items for name, count in item.items())
-
-
-def _render_analysis_markdown(response) -> str:
-    payload = {
-        "provider": response.provider,
-        "model": response.model,
-        "input_tokens": response.input_tokens,
-        "estimated_output_tokens": response.estimated_output_tokens,
-        "estimated_total_tokens": response.estimated_total_tokens,
-        "context_limit": response.context_limit,
-        "context_usage_percent": response.context_usage_percent,
-        "estimated_cost_usd": response.estimated_cost_usd,
-        "risk_level": response.risk_level,
-        "context_health_score": response.context_health_score,
-        "cost_score": response.cost_score,
-        "complexity_score": response.complexity_score,
-        "suggestions": response.suggestions,
-    }
-    return "## Analise do Prompt\n\n```json\n" + json.dumps(payload, ensure_ascii=False, indent=2) + "\n```"
 
 
 if __name__ == "__main__":  # pragma: no cover
