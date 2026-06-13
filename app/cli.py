@@ -5,12 +5,29 @@ import json
 import sys
 from collections.abc import Sequence
 
+from InquirerPy import inquirer
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
 from app.models.schemas import AnalyzePromptRequest, CompareModelsRequest
 from app.providers.registry import get_catalog_snapshot, list_models
 from app.providers.sync_service import UnsupportedProviderError, sync_model_catalog
 from app.services.analyzer_service import analyze_prompt, compare_models
 from app.services.metrics_service import get_metrics
 from app.services.optimizer_service import optimize_prompt
+
+CONSOLE = Console()
+ASCII_LOGO = r"""
+ _______    _                 _____                     _ _
+|__   __|  | |               / ____|                   | (_)
+   | | ___ | | _____ _ __   | |  __ _   _  __ _ _ __ __| |_  __ _ _ __
+   | |/ _ \| |/ / _ \ '_ \  | | |_ | | | |/ _` | '__/ _` | |/ _` | '_ \
+   | | (_) |   <  __/ | | | | |__| | |_| | (_| | | | (_| | | (_| | | | |
+   |_|\___/|_|\_\___|_| |_|  \_____|\__,_|\__,_|_|  \__,_|_|\__,_|_| |_|
+"""
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -169,6 +186,9 @@ def _metrics_command(_args: argparse.Namespace) -> int:
 
 
 def _default_command() -> int:
+    if _supports_interactive_ui():
+        return _interactive_menu()
+
     print("Token Guardian CLI\n")
     print("Use um dos comandos abaixo:\n")
     print("- token-guardian analyze --provider anthropic --model claude-sonnet-4 --prompt \"Seu prompt\"")
@@ -179,6 +199,222 @@ def _default_command() -> int:
     print("- token-guardian metrics")
     print("\nDica: rode `token-guardian --help` para ver todas as opcoes.")
     return 0
+
+
+def _interactive_menu() -> int:
+    _render_cover()
+
+    choice = inquirer.select(
+        message="Escolha o fluxo",
+        choices=[
+            {
+                "name": "Revisar prompt",
+                "value": "analyze",
+            },
+            {
+                "name": "Comparar modelos",
+                "value": "compare",
+            },
+            {
+                "name": "Otimizar prompt",
+                "value": "optimize",
+            },
+            {
+                "name": "Listar modelos",
+                "value": "models",
+            },
+            {
+                "name": "Sincronizar catalogo",
+                "value": "sync-models",
+            },
+            {
+                "name": "Ver metricas",
+                "value": "metrics",
+            },
+            {
+                "name": "Sair",
+                "value": "exit",
+            },
+        ],
+        pointer="›",
+        border=True,
+        qmark="",
+        instruction="Use as setas para navegar e Enter para confirmar.",
+        long_instruction=(
+            "Preflight elegante para tokens, custo e contexto antes da chamada da LLM."
+        ),
+        amark="●",
+    ).execute()
+
+    if choice == "analyze":
+        return _interactive_analyze()
+    if choice == "compare":
+        return _interactive_compare()
+    if choice == "optimize":
+        return _interactive_optimize()
+    if choice == "models":
+        return _models_command(argparse.Namespace())
+    if choice == "sync-models":
+        return _interactive_sync_models()
+    if choice == "metrics":
+        return _metrics_command(argparse.Namespace())
+    return 0
+
+
+def _interactive_analyze() -> int:
+    provider = _select_provider()
+    model = _select_model_for_provider(provider)
+    prompt = _prompt_text("Cole o prompt", multiline=True)
+    estimated_output_tokens = _prompt_optional_int(
+        "Tokens de saida estimados", default=None
+    )
+    return _analyze_command(
+        argparse.Namespace(
+            provider=provider,
+            model=model,
+            prompt=prompt,
+            estimated_output_tokens=estimated_output_tokens,
+        )
+    )
+
+
+def _interactive_compare() -> int:
+    prompt = _prompt_text("Prompt para comparar", multiline=True)
+    estimated_output_tokens = _prompt_optional_int(
+        "Tokens de saida estimados", default=None
+    )
+    return _compare_command(
+        argparse.Namespace(
+            prompt=prompt,
+            estimated_output_tokens=estimated_output_tokens,
+        )
+    )
+
+
+def _interactive_optimize() -> int:
+    prompt = _prompt_text("Prompt para otimizar", multiline=True)
+    return _optimize_command(argparse.Namespace(prompt=prompt))
+
+
+def _interactive_sync_models() -> int:
+    provider_choices = sorted({item.provider for item in list_models()})
+    selected = inquirer.checkbox(
+        message="Selecione os providers para sincronizar",
+        choices=[
+            {"name": f"Todos ({len(provider_choices)})", "value": "__all__"},
+            *[
+                {"name": provider.title(), "value": provider}
+                for provider in provider_choices
+            ],
+        ],
+        pointer="›",
+        border=True,
+        qmark="",
+        instruction="Use espaco para marcar e Enter para confirmar.",
+        amark="●",
+    ).execute()
+    providers = [] if "__all__" in selected or not selected else selected
+    return _sync_models_command(argparse.Namespace(provider=providers))
+
+
+def _select_provider() -> str:
+    providers = sorted({item.provider for item in list_models()})
+    return inquirer.select(
+        message="Escolha o provider",
+        choices=[{"name": provider.title(), "value": provider} for provider in providers],
+        pointer="›",
+        border=True,
+        qmark="",
+        instruction="Selecione o provedor do fluxo.",
+        amark="●",
+    ).execute()
+
+
+def _select_model_for_provider(provider: str) -> str:
+    models = [item for item in list_models() if item.provider == provider]
+    return inquirer.select(
+        message="Escolha o modelo",
+        choices=[
+            {
+                "name": (
+                    f"{item.display_name} | contexto {item.context_limit} | "
+                    f"in ${item.input_cost_per_1k}/1k | out ${item.output_cost_per_1k}/1k"
+                ),
+                "value": item.model,
+            }
+            for item in models
+        ],
+        pointer="›",
+        border=True,
+        qmark="",
+        instruction="Selecione o modelo para analisar o prompt.",
+        amark="●",
+    ).execute()
+
+
+def _prompt_text(message: str, *, multiline: bool) -> str:
+    instruction = (
+        "Pressione Alt+Enter para quebrar linha e Enter para concluir."
+        if multiline
+        else "Pressione Enter para confirmar."
+    )
+    return str(
+        inquirer.text(
+            message=message,
+            multiline=multiline,
+            instruction=instruction,
+            qmark="",
+            validate=lambda value: len(str(value).strip()) > 0,
+            invalid_message="Informe um valor antes de continuar.",
+            long_instruction="O texto sera usado diretamente no fluxo selecionado.",
+        ).execute()
+    ).strip()
+
+
+def _prompt_optional_int(message: str, *, default: int | None) -> int | None:
+    value = inquirer.text(
+        message=message,
+        default="" if default is None else str(default),
+        instruction="Deixe vazio para estimativa automatica.",
+        qmark="",
+        validate=lambda raw: str(raw).strip() == "" or str(raw).strip().isdigit(),
+        invalid_message="Digite um numero inteiro positivo ou deixe vazio.",
+    ).execute()
+    stripped = str(value).strip()
+    return int(stripped) if stripped else None
+
+
+def _supports_interactive_ui() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _render_cover() -> None:
+    header = Text.from_markup("[bold bright_cyan]Token Guardian CLI[/bold bright_cyan]")
+    subtitle = Text.from_markup(
+        "[cyan]Prompt intelligence before the LLM call.[/cyan]"
+    )
+    body = Text.from_markup(f"[bright_cyan]{ASCII_LOGO}[/bright_cyan]")
+    CONSOLE.print(
+        Panel(
+            Text.assemble(body, "\n", header, "\n", subtitle),
+            border_style="bright_cyan",
+            box=box.ROUNDED,
+            title="[bold white]token-guardian[/bold white]",
+            subtitle="[cyan]interactive preflight[/cyan]",
+            padding=(1, 2),
+        )
+    )
+    stats = Table.grid(expand=True)
+    stats.add_column(justify="center")
+    stats.add_column(justify="center")
+    stats.add_column(justify="center")
+    stats.add_row(
+        "[bold white]tokens[/bold white]\n[cyan]estimate[/cyan]",
+        "[bold white]cost[/bold white]\n[cyan]preview[/cyan]",
+        "[bold white]context[/bold white]\n[cyan]risk[/cyan]",
+    )
+    CONSOLE.print(stats)
+    CONSOLE.print()
 
 
 def _format_ranked(items: list[dict[str, int]]) -> str:

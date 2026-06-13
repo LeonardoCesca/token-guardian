@@ -20,6 +20,7 @@ It helps developers answer three questions quickly:
 - compare supported models using the same prompt
 - clean duplicated or bloated prompt text
 - keep simple local observability with SQLite metrics
+- start from an interactive terminal menu instead of memorizing commands
 
 ## Copy-Paste Install
 
@@ -41,6 +42,8 @@ pip install -e .[dev]
 token-guardian
 ```
 
+Running `token-guardian` without arguments opens an interactive menu when your terminal supports it.
+
 ## What the CLI Can Do
 
 - analyze one prompt for one provider/model pair
@@ -49,6 +52,7 @@ token-guardian
 - list supported models
 - sync the local model catalog snapshot
 - inspect local usage metrics
+- guide the full flow through an interactive menu
 
 ## Usage
 
@@ -59,6 +63,14 @@ token-guardian
 ```
 
 Running without arguments shows the available flow and the most useful commands to start with.
+
+In interactive terminals, Token Guardian opens a guided menu with:
+
+- provider selection
+- model selection
+- prompt entry
+- sync selection by provider
+- quick access to models and metrics
 
 ### Analyze a prompt
 
