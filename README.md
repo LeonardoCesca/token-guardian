@@ -13,6 +13,14 @@ It helps developers answer three questions quickly:
 - how much this request may cost
 - whether this prompt is risky for the selected context window
 
+## Preview
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/LeonardoCesca/token-guardian/master/docs/images/token-guardian-analyze.svg" alt="Token Guardian CLI analyze output" width="1100">
+</p>
+
+The current CLI interface is optimized for interactive terminal use and the guided experience is presented in pt-BR.
+
 ## Why Use Token Guardian?
 
 - catch oversized prompts before they hit the model
@@ -27,18 +35,14 @@ It helps developers answer three questions quickly:
 ### Windows PowerShell
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .[dev]
+pip install token-guardian
 token-guardian
 ```
 
 ### macOS / Linux
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+pip install token-guardian
 token-guardian
 ```
 
@@ -120,27 +124,7 @@ token-guardian metrics
 
 ## Example Output
 
-Typical `analyze` output:
-
-```json
-{
-  "provider": "anthropic",
-  "model": "claude-sonnet-4",
-  "input_tokens": 20,
-  "estimated_output_tokens": 128,
-  "estimated_total_tokens": 148,
-  "context_limit": 200000,
-  "context_usage_percent": 0.07,
-  "estimated_cost_usd": 0.00198,
-  "risk_level": "low",
-  "context_health_score": 99,
-  "cost_score": "$",
-  "complexity_score": "Simple",
-  "suggestions": [
-    "Prompt enxuto e com bom sinal; mantenha foco em objetivo, restricoes e saida."
-  ]
-}
-```
+Typical `analyze` output is rendered as a terminal report with token estimate, cost, context usage, risk, and prompt guidance.
 
 ## Supported Providers
 

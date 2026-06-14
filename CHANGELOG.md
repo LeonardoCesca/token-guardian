@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.1.1] - 2026-06-14
+
+### Added
+
+- CLI screenshot asset for README and PyPI project presentation.
+
+### Changed
+
+- Translated the user-facing CLI experience to pt-BR, including menu text, labels, and result views.
+- Updated the README preview so the published package page better reflects the current terminal interface.
+
 ## [0.1.0] - 2026-06-13
 
 ### Added

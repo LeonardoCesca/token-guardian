@@ -1,0 +1,35 @@
+<svg width="1600" height="980" viewBox="0 0 1600 980" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="980" fill="#071D49"/>
+  <rect x="72" y="64" width="1456" height="852" rx="24" fill="#0B275F"/>
+  <rect x="72" y="64" width="1456" height="64" rx="24" fill="#123876"/>
+  <rect x="72" y="104" width="1456" height="24" fill="#123876"/>
+  <circle cx="118" cy="96" r="10" fill="#FF6B6B"/>
+  <circle cx="150" cy="96" r="10" fill="#FFD166"/>
+  <circle cx="182" cy="96" r="10" fill="#06D6A0"/>
+  <text x="220" y="103" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="26">token-guardian analyze --provider anthropic --model claude-sonnet-4</text>
+  <text x="112" y="176" fill="#5EEBFF" font-family="Consolas, 'Courier New', monospace" font-size="24">C:\Users\leona\Documents\token-guardian-mcp&gt; token-guardian analyze</text>
+  <text x="112" y="230" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">+----------------------------- Analise do Prompt -----------------------------+</text>
+  <text x="112" y="268" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| anthropic/claude-sonnet-4                                                   |</text>
+  <text x="112" y="306" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">+-----------------------------------------------------------------------------+</text>
+  <text x="112" y="344" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">+------------+ +-----------------+       +-----------------+        +---------+</text>
+  <text x="112" y="382" fill="#5EEBFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| Tokens     | | Custo estimado  |       | Uso de contexto |        | Risco   |</text>
+  <text x="112" y="420" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| 155        | | $0.002001       |       | 0.08%           |        | low     |</text>
+  <text x="112" y="458" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">+------------+ +-----------------+       +-----------------+        +---------+</text>
+  <text x="640" y="516" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">Resumo</text>
+  <text x="112" y="560" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">+-----------------------------------------------------------------------------+</text>
+  <text x="112" y="598" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| Campo                                              | Valor                  |</text>
+  <text x="112" y="636" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">|----------------------------------------------------+------------------------|</text>
+  <text x="112" y="674" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| Input tokens                                       | 27                     |</text>
+  <text x="112" y="712" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| Output estimado                                    | 128                    |</text>
+  <text x="112" y="750" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| Context limit                                      | 200000                 |</text>
+  <text x="112" y="788" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| Context health                                     | 98                     |</text>
+  <text x="112" y="826" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| Complexidade                                       | Simple                 |</text>
+  <text x="112" y="864" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">| Faixa de custo                                     | $                      |</text>
+  <text x="112" y="902" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="23">+-----------------------------------------------------------------------------+</text>
+  <rect x="930" y="566" width="520" height="280" rx="18" fill="#0F3476" stroke="#5EEBFF" stroke-width="2"/>
+  <text x="962" y="616" fill="#5EEBFF" font-family="Consolas, 'Courier New', monospace" font-size="22">Prompt Guidance</text>
+  <text x="962" y="672" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="21">• Prompt enxuto e com bom sinal;</text>
+  <text x="962" y="708" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="21">  mantenha foco em objetivo,</text>
+  <text x="962" y="744" fill="#D8ECFF" font-family="Consolas, 'Courier New', monospace" font-size="21">  restricoes e saida.</text>
+  <text x="112" y="948" fill="#7DDCFF" font-family="Consolas, 'Courier New', monospace" font-size="20">Token Guardian CLI · shielded prompt preflight</text>
+</svg>
