@@ -31,34 +31,54 @@ ASCII_LOGO = r"""
 """
 ACTION_CARDS = (
     {
-        "title": "Analyze",
-        "subtitle": "1 provider, 1 model, 1 prompt",
-        "body": "Estimate tokens, cost, context pressure, and prompt quality before the LLM call.",
+        "title": "Analisar",
+        "subtitle": "1 provedor, 1 modelo, 1 prompt",
+        "body": "Estime tokens, custo, pressao de contexto e qualidade do prompt antes da chamada para a LLM.",
         "accent": "bright_cyan",
         "value": "analyze",
     },
     {
-        "title": "Compare",
-        "subtitle": "Same prompt, multiple models",
-        "body": "Compare cost, total tokens, speed, and risk across the default model set.",
+        "title": "Comparar",
+        "subtitle": "Mesmo prompt, varios modelos",
+        "body": "Compare custo, total de tokens, velocidade e risco entre os modelos padrao.",
         "accent": "green",
         "value": "compare",
     },
     {
-        "title": "Optimize",
-        "subtitle": "Prompt cleanup",
-        "body": "Remove duplicate instructions and whitespace noise before execution.",
+        "title": "Otimizar",
+        "subtitle": "Limpeza do prompt",
+        "body": "Remova instrucoes duplicadas e ruido de espacos em branco antes da execucao.",
         "accent": "magenta",
         "value": "optimize",
     },
     {
-        "title": "Catalog",
-        "subtitle": "Models, sync, metrics",
-        "body": "Browse the JSON snapshot, refresh providers, and inspect local observability.",
+        "title": "Catalogo",
+        "subtitle": "Modelos, sync e metricas",
+        "body": "Navegue pelo snapshot JSON, atualize provedores e acompanhe a observabilidade local.",
         "accent": "yellow",
         "value": "catalog",
     },
 )
+
+RISK_LABELS = {
+    "low": "baixo",
+    "medium": "medio",
+    "high": "alto",
+    "critical": "critico",
+}
+
+COMPLEXITY_LABELS = {
+    "Simple": "Simples",
+    "Medium": "Media",
+    "Complex": "Complexa",
+    "Very Complex": "Muito complexa",
+}
+
+SPEED_LABELS = {
+    "fast": "rapida",
+    "medium": "media",
+    "slow": "lenta",
+}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -175,7 +195,7 @@ def _models_command(_args: argparse.Namespace) -> int:
     )
     table = _build_table(
         "Catalogo",
-        ["Modelo", "Provider", "Contexto", "Entrada", "Saida", "Velocidade"],
+        ["Modelo", "Provedor", "Contexto", "Entrada", "Saida", "Velocidade"],
     )
     models = sorted(list_models(), key=lambda model: (model.provider, model.model))
     for item in models:
@@ -185,7 +205,7 @@ def _models_command(_args: argparse.Namespace) -> int:
             str(item.context_limit),
             f"${item.input_cost_per_1k}/1k",
             f"${item.output_cost_per_1k}/1k",
-            item.speed_estimate,
+            _translate_speed(item.speed_estimate),
         )
     CONSOLE.print(table)
     source_panels = [
@@ -217,7 +237,7 @@ def _sync_models_command(args: argparse.Namespace) -> int:
         [
             ("Arquivo", str(snapshot.catalog_path)),
             ("Modelos sincronizados", str(len(snapshot.models))),
-            ("Providers", str(len({item.provider for item in snapshot.models}))),
+            ("Provedores", str(len({item.provider for item in snapshot.models}))),
         ]
     )
     return 0
@@ -239,7 +259,7 @@ def _metrics_command(_args: argparse.Namespace) -> int:
     )
     table = _build_table("Ranking", ["Categoria", "Resumo"])
     table.add_row("Top modelos", _format_ranked(metrics.top_models))
-    table.add_row("Top providers", _format_ranked(metrics.top_providers))
+    table.add_row("Top provedores", _format_ranked(metrics.top_providers))
     CONSOLE.print(table)
     return 0
 
@@ -281,7 +301,7 @@ def _interactive_menu() -> int:
         qmark="",
         instruction="Use as setas para navegar e Enter para confirmar.",
         long_instruction=(
-            "Cada fluxo abre uma experiencia guiada. Comece por Analyze para revisar um prompt com provider e modelo definidos."
+            "Cada fluxo abre uma experiencia guiada. Comece por Revisar prompt para analisar um prompt com provedor e modelo definidos."
         ),
         amark="*",
     ).execute()
@@ -366,7 +386,7 @@ def _select_provider() -> str:
     ]
     CONSOLE.print(Columns(preview, equal=True, expand=True))
     return inquirer.select(
-        message="Escolha o provider",
+        message="Escolha o provedor",
         choices=[{"name": provider.title(), "value": provider} for provider in providers],
         pointer=">",
         border=True,
@@ -385,7 +405,7 @@ def _select_model_for_provider(provider: str) -> str:
             {
                 "name": (
                     f"{item.display_name} | contexto {item.context_limit} | "
-                    f"in ${item.input_cost_per_1k}/1k | out ${item.output_cost_per_1k}/1k"
+                    f"ent ${item.input_cost_per_1k}/1k | sai ${item.output_cost_per_1k}/1k"
                 ),
                 "value": item.model,
             }
@@ -420,7 +440,7 @@ def _supports_interactive_ui() -> bool:
 def _render_cover() -> None:
     header = Text.from_markup("[bold bright_cyan]Token Guardian CLI[/bold bright_cyan]")
     subtitle = Text.from_markup(
-        "[cyan]Prompt intelligence before the LLM call.[/cyan]"
+        "[cyan]Inteligencia de prompt antes da chamada para a LLM.[/cyan]"
     )
     body = Text.from_markup(f"[bright_cyan]{ASCII_LOGO}[/bright_cyan]")
     CONSOLE.print(
@@ -429,7 +449,7 @@ def _render_cover() -> None:
             border_style="bright_cyan",
             box=box.ROUNDED,
             title="[bold white]token-guardian[/bold white]",
-            subtitle="[cyan]interactive preflight[/cyan]",
+            subtitle="[cyan]preflight interativo[/cyan]",
             padding=(1, 2),
         )
     )
@@ -438,9 +458,9 @@ def _render_cover() -> None:
     stats.add_column(justify="center")
     stats.add_column(justify="center")
     stats.add_row(
-        "[bold white]tokens[/bold white]\n[cyan]estimate[/cyan]",
-        "[bold white]cost[/bold white]\n[cyan]preview[/cyan]",
-        "[bold white]context[/bold white]\n[cyan]risk[/cyan]",
+        "[bold white]tokens[/bold white]\n[cyan]estimativa[/cyan]",
+        "[bold white]custo[/bold white]\n[cyan]previa[/cyan]",
+        "[bold white]contexto[/bold white]\n[cyan]risco[/cyan]",
     )
     CONSOLE.print(stats)
     CONSOLE.print()
@@ -468,14 +488,14 @@ def _render_shortcuts_panel() -> None:
     shortcuts = Table.grid(expand=True)
     shortcuts.add_column(style="bold cyan")
     shortcuts.add_column(style="white")
-    shortcuts.add_row("UP / DOWN", "navegar entre opcoes")
+    shortcuts.add_row("CIMA / BAIXO", "navegar entre opcoes")
     shortcuts.add_row("ENTER", "confirmar selecao ou executar")
-    shortcuts.add_row("SPACE", "marcar providers no sync")
+    shortcuts.add_row("ESPACO", "marcar provedores no sync")
     shortcuts.add_row("CTRL+C", "sair a qualquer momento")
     CONSOLE.print(
         Panel(
             shortcuts,
-            title="[bold white]Quick Actions + Atalhos[/bold white]",
+            title="[bold white]Acoes Rapidas + Atalhos[/bold white]",
             border_style="bright_cyan",
             box=box.ROUNDED,
         )
@@ -487,14 +507,14 @@ def _render_provider_focus(provider: str) -> None:
     models = [item for item in list_models() if item.provider == provider]
     snapshot = get_catalog_snapshot()
     body = Group(
-        Text(f"Provider selecionado: {provider}", style="bold cyan"),
+        Text(f"Provedor selecionado: {provider}", style="bold cyan"),
         Text(f"Modelos disponiveis: {len(models)}"),
         Text(f"Catalogo atualizado em {snapshot.last_updated_at}"),
     )
     CONSOLE.print(
         Panel(
             body,
-            title="[bold white]Provider Focus[/bold white]",
+            title="[bold white]Resumo do Provedor[/bold white]",
             border_style="cyan",
             box=box.ROUNDED,
         )
@@ -512,11 +532,11 @@ def _render_model_browser(provider: str, models: list[object]) -> None:
     spotlight = Panel(
         Group(
             Text(recommended.display_name, style="bold green"),
-            Text(f"provider: {provider}"),
+            Text(f"provedor: {provider}"),
             Text(f"contexto: {recommended.context_limit}"),
             Text(f"entrada: ${recommended.input_cost_per_1k}/1k"),
             Text(f"saida: ${recommended.output_cost_per_1k}/1k"),
-            Text(f"velocidade: {recommended.speed_estimate}"),
+            Text(f"velocidade: {_translate_speed(recommended.speed_estimate)}"),
             Text(recommended.source_url, style="cyan"),
         ),
         title="[bold white]Preview lateral do modelo[/bold white]",
@@ -537,7 +557,7 @@ def _render_model_spotlight(provider: str, model: str) -> None:
         Text(f"contexto: {selected.context_limit}"),
         Text(f"entrada: ${selected.input_cost_per_1k}/1k"),
         Text(f"saida: ${selected.output_cost_per_1k}/1k"),
-        Text(f"velocidade: {selected.speed_estimate}"),
+        Text(f"velocidade: {_translate_speed(selected.speed_estimate)}"),
         Text(selected.source_url, style="cyan"),
     )
     CONSOLE.print(
@@ -598,22 +618,22 @@ def _render_analysis_view(response) -> None:
             ("Tokens", str(response.estimated_total_tokens)),
             ("Custo estimado", f"${response.estimated_cost_usd:.6f}"),
             ("Uso de contexto", f"{response.context_usage_percent:.2f}%"),
-            ("Risco", response.risk_level),
+            ("Risco", _translate_risk(response.risk_level)),
         ]
     )
     table = _build_table("Resumo", ["Campo", "Valor"])
-    table.add_row("Input tokens", str(response.input_tokens))
-    table.add_row("Output estimado", str(response.estimated_output_tokens))
-    table.add_row("Context limit", str(response.context_limit))
-    table.add_row("Context health", str(response.context_health_score))
-    table.add_row("Complexidade", response.complexity_score)
+    table.add_row("Tokens de entrada", str(response.input_tokens))
+    table.add_row("Saida estimada", str(response.estimated_output_tokens))
+    table.add_row("Limite de contexto", str(response.context_limit))
+    table.add_row("Saude do contexto", str(response.context_health_score))
+    table.add_row("Complexidade", _translate_complexity(response.complexity_score))
     table.add_row("Faixa de custo", response.cost_score)
     CONSOLE.print(table)
     suggestions = "\n".join(f"- {item}" for item in response.suggestions)
     CONSOLE.print(
         Panel(
             Markdown(f"### Recomendacoes\n{suggestions}"),
-            title="[bold white]Prompt Guidance[/bold white]",
+            title="[bold white]Orientacao do Prompt[/bold white]",
             border_style="green",
             box=box.ROUNDED,
         )
@@ -623,20 +643,20 @@ def _render_analysis_view(response) -> None:
 def _render_compare_view(response) -> None:
     _render_result_header(
         "Comparacao de Modelos",
-        f"Prompt length: {response.prompt_length}",
+        f"Tamanho do prompt: {response.prompt_length}",
         "green",
     )
     table = _build_table(
         "Comparativo",
-        ["Provider/Modelo", "Tokens", "Custo", "Risco", "Velocidade"],
+        ["Provedor/Modelo", "Tokens", "Custo", "Risco", "Velocidade"],
     )
     for item in response.comparisons:
         table.add_row(
             f"{item.provider}/{item.model}",
             str(item.estimated_total_tokens),
             f"${item.estimated_cost_usd:.6f}",
-            item.risk_level,
-            item.speed_estimate,
+            _translate_risk(item.risk_level),
+            _translate_speed(item.speed_estimate),
         )
     CONSOLE.print(table)
 
@@ -673,6 +693,18 @@ def _format_ranked(items: list[dict[str, int]]) -> str:
     if not items:
         return "nenhum dado ainda"
     return ", ".join(f"{name} ({count})" for item in items for name, count in item.items())
+
+
+def _translate_risk(value: str) -> str:
+    return RISK_LABELS.get(value, value)
+
+
+def _translate_complexity(value: str) -> str:
+    return COMPLEXITY_LABELS.get(value, value)
+
+
+def _translate_speed(value: str) -> str:
+    return SPEED_LABELS.get(value, value)
 
 
 if __name__ == "__main__":  # pragma: no cover
